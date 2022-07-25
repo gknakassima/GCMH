@@ -52,11 +52,11 @@ function GeneralizedMarchingHyperCube(n, k, First, Last, Division, filename, Fun
                 % If k-face is transversal, add to list
                 if trans == 1
                     % Apply Newton's Method for checking
-                    [FullCoefVertex] = PseudoNewton(40,Vertex);
+%                     [FullCoefVertex] = PseudoNewton(40,Vertex);
 %                     [FullCoefVertex] = NewtonMethod(40,Vertex,FaceIndex);
-                    fprintf(file2,'%15.8f ',FullCoefVertex);
-                    fprintf(file2,'\n');
-                    [FullCoefList] = [FullCoefList; FullCoefVertex];
+%                     fprintf(file2,'%15.8f ',FullCoefVertex);
+%                     fprintf(file2,'\n');
+%                     [FullCoefList] = [FullCoefList; FullCoefVertex];
 
                     VertexManifold = [VertexManifold; Vertex];
                     FaceCubeVertex = [FaceCubeVertex; FaceVertex];
