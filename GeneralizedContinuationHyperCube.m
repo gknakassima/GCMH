@@ -447,7 +447,7 @@ function [V, FV] = GenVertHyperCube(n,Grid,Pert,First,Delta,Label,Func)
    [Coords]    = HyperCubeCoords(n,Label);
    [CoordPert] = HyperCubePert(n,Grid,Coords,Pert);
    [V]         = HyperCube(n,First,Delta,Grid,Coords,CoordPert);
-   [FV]        = Func(n,V); 
+   [FV]        = Func(V); 
    return
 end
 
@@ -765,20 +765,29 @@ function [nConn, nSkel, Skel] = SkeletonHyperCube(file, n, k, nVertex, nEdge, Ve
     return
 end
 
-function [Face,m] = GenFace(n,k) 
-  
-    Face = []; 
-    for i = 1:n-k
-        Division(i) = 2*n;
-    end
-    [Base]  = InitGrid(n-k, Division);
-    m = 0;
-    for g = 0:Base(n-k+1)-1
-        [F]      = GridCoords(n-k,g,Base);
-        [isface] = IsFace(n,n-k,F);
-        if isface == 1
-            Face = [Face; F];
-            m    = m+1;
+function [Face,m] = GenFace(n,k)
+    if k == 0
+        % Generate labels for vertices more efficiently
+        Face = zeros(2^n,n);
+        f1 = 0:n-1;
+        f2 = n:2*n-1;
+        for g = 0:2^n-1
+            F = flip(dec2bin(g,n) - '0');
+            Face(g+1,:) = sort(~F.*f1 + F.*f2);
+        end
+        m = 2^n;
+    else
+        Face = []; 
+        Division(1:n-k) = 2*n;
+        [Base]  = InitGrid(n-k, Division);
+        m = 0;
+        for g = 0:Base(n-k+1)-1
+            [F]      = GridCoords(n-k,g,Base);
+            [isface] = IsFace(n,n-k,F);
+            if isface == 1
+                Face = [Face; F];
+                m    = m+1;
+            end
         end
     end
     return;
@@ -962,7 +971,7 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
     StartAgain = 1;                 % Flag for initializing from cube face
     NFLeft = NSFace;                % Number of remaining unverified faces 
     NSLeft = NCSimp;                % Number of remaining unverified simplices
-    CubeFaceFlag = zeros(NCFace,1); % Flags for already verified cube faces
+    CubeFaceFlag = zeros(NVertManifold,1); % Flags for already verified cube faces
     NumberManifoldEdge = 0;         % Number of manifold edges
 
     % While list is not exhausted
@@ -972,6 +981,12 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
         if StartAgain == 1
             % Find first simplex face and cube face match
             [~,~,indFace] = LabelMatch(2^k,k+1,KFaceVertex,SimpFacesLeft,NCFace,NFLeft);
+
+            % If there are vertices left not connected to a cube face, throw warning for refinement and return
+            if indFace < 0
+                warning('Internal loop detected; refinement recommended')
+                return
+            end
 
             % Store simplex face that is in a cube face
             ConnSimpFaces = SimpFacesLeft(indFace,:);
@@ -986,11 +1001,7 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
             NFLeft = NFLeft - 1;
 
             % Flag cube face as already verified
-            try
-                CubeFaceFlag(VertexLabel1) = 1;
-            catch
-                disp(VertexLabel1);
-            end
+            CubeFaceFlag(VertexLabel1) = 1;
         end
 
         % Find next simplex that share the face from previous/starting iteration

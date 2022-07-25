@@ -1,16 +1,18 @@
-function GeneralizedMarchingHyperCube(n, k, First, Last, Division,  filename, Func)
+function GeneralizedMarchingHyperCube(n, k, First, Last, Division, filename, Func)
     
     file = fopen(filename,'w');
+    file2 = fopen('FullCoef.txt','w');
 
     fprintf(file,'%3d %3d\n',n,k);
     fprintf(file,'%3d ',Division(1:n));
     fprintf(file,'\n\n');
 
     Delta = (Last-First)./Division;              % Hypercube sizes
-    Pert  = random('Normal',0,1,2^n,n)*0.000001; % Perturbation to vertices to avoid problems
+    Pert  = random('Normal',0,1,2^n,n)*1e-8; % Perturbation to vertices to avoid problems
     Base  = InitGrid(n, Division);
     
     fprintf('Cubes processed: \n');
+
     % Loops through all hypercubes
     for g = 0:Base(n+1)-1
         
@@ -30,13 +32,14 @@ function GeneralizedMarchingHyperCube(n, k, First, Last, Division,  filename, Fu
         SimpCubeVertex = [];
         CubeFaceLabel = [];
         NumberVertex   = 0;
+        FullCoefList = [];
     
         % Loop through hypercube faces 
         for f = 1:nCubeFace
     
             % Loop through all hypercube face simplices
             for s = 1:nCubeSimp
-    
+
                 % Get hypercube vertices for the current simplex
                 FaceIndex = CubeFace(f,:);
                 FaceVertex = FaceVert(f,:);
@@ -48,6 +51,13 @@ function GeneralizedMarchingHyperCube(n, k, First, Last, Division,  filename, Fu
     
                 % If k-face is transversal, add to list
                 if trans == 1
+                    % Apply Newton's Method for checking
+                    [FullCoefVertex] = PseudoNewton(40,Vertex);
+%                     [FullCoefVertex] = NewtonMethod(40,Vertex,FaceIndex);
+                    fprintf(file2,'%15.8f ',FullCoefVertex);
+                    fprintf(file2,'\n');
+                    [FullCoefList] = [FullCoefList; FullCoefVertex];
+
                     VertexManifold = [VertexManifold; Vertex];
                     FaceCubeVertex = [FaceCubeVertex; FaceVertex];
                     SimpCubeVertex = [SimpCubeVertex; SimpFace];
@@ -88,6 +98,7 @@ function GeneralizedMarchingHyperCube(n, k, First, Last, Division,  filename, Fu
     end
     fprintf(file,'-1\n');
     fclose(file);
+    fclose(file2);
 
 end
 
@@ -95,10 +106,13 @@ end
 %% InitGrid: Initialize base vector for sequential indexing
 function [Base] = InitGrid(n, Division) 
   
-    Base(1) = 1;
-    for i = 2:n+1
-        Base(i) = Base(i-1)*Division(i-1);
-    end
+%     Base(1) = 1;
+%     for i = 2:n+1
+%         Base(i) = Base(i-1)*Division(i-1);
+%     end
+    dummy(2:n+1) = Division;
+    dummy(1) = 1;
+    Base = cumprod(dummy);
     return
 end
 
@@ -151,20 +165,29 @@ function [VHC] = HyperCube(n,First,Delta,I,Coords,Pert)
 end
 
 %% GenFace: Generate labels of k-faces
-function [Face,m] = GenFace(n,k) 
-  
-    Face = []; 
-    for i = 1:n-k
-        Division(i) = 2*n;
-    end
-    [Base]  = InitGrid(n-k, Division);
-    m = 0;
-    for g = 0:Base(n-k+1)-1
-        [F]      = GridCoords(n-k,g,Base);
-        [isface] = IsFace(n,n-k,F);
-        if isface == 1
-            Face = [Face; F];
-            m    = m+1;
+function [Face,m] = GenFace(n,k)
+    if k == 0
+        % Generate labels for vertices more efficiently
+        Face = zeros(2^n,n);
+        f1 = 0:n-1;
+        f2 = n:2*n-1;
+        for g = 0:2^n-1
+            F = flip(dec2bin(g,n) - '0');
+            Face(g+1,:) = sort(~F.*f1 + F.*f2);
+        end
+        m = 2^n;
+    else
+        Face = []; 
+        Division(1:n-k) = 2*n;
+        [Base]  = InitGrid(n-k, Division);
+        m = 0;
+        for g = 0:Base(n-k+1)-1
+            [F]      = GridCoords(n-k,g,Base);
+            [isface] = IsFace(n,n-k,F);
+            if isface == 1
+                Face = [Face; F];
+                m    = m+1;
+            end
         end
     end
     return;
@@ -241,6 +264,13 @@ function [Grid] = GridCoords(n,i,Base)
         copy    = aux;
     end
     Grid(1) = copy;
+%     
+%     copy2(n) = 0;
+%     copy2 = i*ones(size(copy2));
+%     aux2 = mod(copy2,Base(2:end));
+%     Grid2 = (copy-aux)./Base(2:end);
+%     Grid2(1) = i;
+
     return
 end  
 
@@ -328,11 +358,13 @@ function [Vertex, trans] = GetVertexManifold(n,k,Face,Vert,FVert)
     for i = 1:k+1
       A(1,i) = 1;
       A(2:k+1,i) = FVert(Face(i)+1,:);
-   end
+    end
+    
    b = [1; zeros(k,1)];
    lamb = A\b;
    trans = 0;
    Vertex = zeros(1,n);
+
    % If all lambda > 0, find intersection point as linear combination of vertices
    if lamb >= 0
        for i = 1:k+1
@@ -359,7 +391,7 @@ function [VertexEdgeManifold,FaceEdgeManifold,NumberEdgeManifold,NumberFace] = G
         Division = 1;
     end
     [Base]  = InitGrid(n-k-1, Division);
-    nVertexMax = 2*(k+1);   % Maximum possible number of vertices in a (k+1)-face
+    nVertexMax = 2*(k+1)*factorial(k);   % Maximum possible number of vertices in a (k+1)-face
     
     % Loops through all possible (k+1)-face labels 
     for g = 0:Base(n-k)-1
@@ -402,7 +434,7 @@ end
 %% SolveAmbiguity: Solves manifold edge ambiguities when there are more than 2 vertices in (k+1)-face
 function [VertexEdgeManifold,NumberEdgeManifold] = SolveAmbiguity(n,k,Vert,FVert,FaceVertManifold,NVertManifold,FaceLabel)
 
-    % Find face vertices from label (same as SplitFaceSimplex)
+    % Find (k+1)-face vertices from label (same as SplitFaceSimplex)
     [FaceVert] = LabelToVert(n,k+1,FaceLabel);
     
     % Split (k+1)-face into simplices
@@ -414,7 +446,7 @@ function [VertexEdgeManifold,NumberEdgeManifold] = SolveAmbiguity(n,k,Vert,FVert
 
     % Loop through each simplex
     for indSimp = 1:NSimp
-        % Find manifold vertices in each simplex k-face
+        % Find manifold vertices in each k-face of simplex
         [SimpVertex,SimpFaces,NVertexSimp] = VertexSimplexFaces(n,k,Vert,FVert,Simp(indSimp,:));
         % Add manifold vertices and simplex k-faces to list for sorting later
         if NVertexSimp > 0
@@ -502,13 +534,25 @@ end
 %% ConnectEndpoints: Connect manifold edges along a (k+1)-face and output endpoints
 function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertManifold,NVertManifold,Simp,SimpFacesVert,KFaceVertex,NCSimp,NCFace,NSFace)
     
+% Inputs:
+% k: Dimension of face
+% FaceVertManifold: 
+% NVertManifold
+% Simp
+% SimpFacesVert
+% KFaceVertex
+% NCSimp
+% NCFace
+% NSFace
+
+
     VertexManifoldEdge = [];        % List of connected faces
     SimpFacesLeft = SimpFacesVert;  % Remaining simplex faces that contain manifold vertices
     SimpLeft = Simp;                % Remaining simplices that contain manifold vertices
     StartAgain = 1;                 % Flag for initializing from cube face
     NFLeft = NSFace;                % Number of remaining unverified faces 
     NSLeft = NCSimp;                % Number of remaining unverified simplices
-    CubeFaceFlag = zeros(NCFace,1); % Flags for already verified cube faces
+    CubeFaceFlag = zeros(NVertManifold,1); % Flags for already verified cube faces
     NumberManifoldEdge = 0;         % Number of manifold edges
 
     % While list is not exhausted
@@ -518,6 +562,12 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
         if StartAgain == 1
             % Find first simplex face and cube face match
             [~,~,indFace] = LabelMatch(2^k,k+1,KFaceVertex,SimpFacesLeft,NCFace,NFLeft);
+
+            % If there are vertices left not connected to a cube face, throw warning for refinement and return
+            if indFace < 0
+                warning('Internal loop detected; refinement recommended')
+                return
+            end
 
             % Store simplex face that is in a cube face
             ConnSimpFaces = SimpFacesLeft(indFace,:);
@@ -582,6 +632,9 @@ function [FaceMatch,indLong,indShort] = LabelMatch(n,k,LongLabelList,ShortLabelL
     for indShort = 1:NShortLabel
         for indLong = 1:NLongLabel
             j = Include(k,ShortLabelList(indShort,:),n,LongLabelList(indLong,:));
+            if indLong > length(LongLabelFlags)
+                disp('Here be error')
+            end
             if j == k && LongLabelFlags(indLong) == 0
                 FaceMatch = 1;
                 return
