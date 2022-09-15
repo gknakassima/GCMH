@@ -106,13 +106,10 @@ end
 %% InitGrid: Initialize base vector for sequential indexing
 function [Base] = InitGrid(n, Division) 
   
-%     Base(1) = 1;
-%     for i = 2:n+1
-%         Base(i) = Base(i-1)*Division(i-1);
-%     end
-    dummy(2:n+1) = Division;
-    dummy(1) = 1;
-    Base = cumprod(dummy);
+    Base(1) = 1;
+    for i = 2:n+1
+        Base(i) = Base(i-1)*Division(i-1);
+    end
     return
 end
 
