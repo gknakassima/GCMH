@@ -1,19 +1,15 @@
-function Klein
+function Klein_Bottle
   
     First      = [-5 -5 -2 0 0];
     Last       = [5 5 2 2*pi 2*pi];
     Division   = [40 40 20 40 40]; 
     FirstPoint = [-3 0 0 pi pi];
-  
-    format long
-    tic;
-    %MarchingSimplex(4, 2, First, Last, Division, @zcosw, 'zcosw_MS.txt');
-    %ContinuationSimplex(4, 2, First, Last, Division, FirstPoint, @zcosw, 'zcosw_CS_5.pol');
-    %GeneralizedMarchingHyperCube(5, 3, First, Last, Division, 'Klein1.pol', @FKlein);
-    GeneralizedContinuationHyperCube(5, 3, First, Last, Division, FirstPoint, @FKlein, 'Klein1.pol');
-    t1 = toc;
-    
-    t1
+    FileName   = 'Klein.pol';
+
+    %MarchingSimplex(4, 2, First, Last, Division, @FKlein, FileName);
+    %ContinuationSimplex(4, 2, First, Last, Division, FirstPoint, @FKlein, FileName);
+    %GeneralizedMarchingHyperCube(5, 3, First, Last, Division, FileName, @FKlein);
+    GeneralizedContinuationHyperCube(5, 3, First, Last, Division, FirstPoint, @FKlein, FileName);
     
     
     % Klein

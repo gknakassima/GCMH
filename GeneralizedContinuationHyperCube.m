@@ -1,4 +1,5 @@
 function GeneralizedContinuationHyperCube(n, k, First, Last, Division, FirstPoint, Func, filename)
+
    file  = fopen(filename,'w');
    fprintf(file,'%3d %3d\n',n,k);
    fprintf(file,'%3d ',Division(1:n));
@@ -23,7 +24,7 @@ function GeneralizedContinuationHyperCube(n, k, First, Last, Division, FirstPoin
    
    % Find starting hypercube
    [g, value] = GetFirstHypercube(n,k,First,Last,Division,FirstPoint,Func);
-   
+
    if value < 0
        fprintf('Nenhum simplexo transversal\n');
        return
@@ -31,11 +32,20 @@ function GeneralizedContinuationHyperCube(n, k, First, Last, Division, FirstPoin
    
    % Find adjacent hypercubes that are transversal to manifold
    [NHcubeTrans, HcubeTrans] = InsertList(NHcubeTrans,HcubeTrans,g);
-   
-   Ncube = 0;
 
+   Ncube = 0;
+   NcubeMax = 100;
+   
+   t_Vertex = 0;
+   t_Edge = 0;
+   t_Ambiguity = 0;
+   t_Skel = 0;
+
+   % Pre-generate simplices from hypercube k-faces
+   [CubeFace,nCubeFace,FaceVert,CubeSimp,nCubeSimp] = SplitFaceSimplex(n, k);
+   
    % While list of transversal hypercubes is not exhausted
-   while NHcubeTrans > 0
+   while NHcubeTrans > 0 % && Ncube < NcubeMax
         % Get new hypercube and remove from list
         [g, NHcubeTrans, HcubeTrans] = GetAndRemoveList(NHcubeTrans,g,HcubeTrans);
         % Insert adjacent hypercubes to list
@@ -49,16 +59,13 @@ function GeneralizedContinuationHyperCube(n, k, First, Last, Division, FirstPoin
         
         % Generates vertex coordinates and function values on them
         [Vert,FVert] = GenVert(n, Grid, Pert, First, Delta, Func);
-    
-        % Split hypercube faces into simplices
-        [CubeFace,nCubeFace,FaceVert,CubeSimp,nCubeSimp] = SplitFaceSimplex(n, k);
         
         VertexManifold = [];
         FaceCubeVertex = [];
         SimpCubeVertex = [];
         CubeFaceLabel = [];
         NumberVertex   = 0;
-    
+
         % Loop through hypercube faces 
         for f = 1:nCubeFace
     
@@ -127,6 +134,7 @@ function GeneralizedContinuationHyperCube(n, k, First, Last, Division, FirstPoin
    fprintf(file,'-1\n');
    
    fclose(file);
+   
    return
 end
 
@@ -447,7 +455,7 @@ function [V, FV] = GenVertHyperCube(n,Grid,Pert,First,Delta,Label,Func)
    [Coords]    = HyperCubeCoords(n,Label);
    [CoordPert] = HyperCubePert(n,Grid,Coords,Pert);
    [V]         = HyperCube(n,First,Delta,Grid,Coords,CoordPert);
-   [FV]        = Func(V); 
+   [FV]        = Func(n,V); 
    return
 end
 
@@ -765,29 +773,20 @@ function [nConn, nSkel, Skel] = SkeletonHyperCube(file, n, k, nVertex, nEdge, Ve
     return
 end
 
-function [Face,m] = GenFace(n,k)
-    if k == 0
-        % Generate labels for vertices more efficiently
-        Face = zeros(2^n,n);
-        f1 = 0:n-1;
-        f2 = n:2*n-1;
-        for g = 0:2^n-1
-            F = flip(dec2bin(g,n) - '0');
-            Face(g+1,:) = sort(~F.*f1 + F.*f2);
-        end
-        m = 2^n;
-    else
-        Face = []; 
-        Division(1:n-k) = 2*n;
-        [Base]  = InitGrid(n-k, Division);
-        m = 0;
-        for g = 0:Base(n-k+1)-1
-            [F]      = GridCoords(n-k,g,Base);
-            [isface] = IsFace(n,n-k,F);
-            if isface == 1
-                Face = [Face; F];
-                m    = m+1;
-            end
+function [Face,m] = GenFace(n,k) 
+  
+    Face = []; 
+    for i = 1:n-k
+        Division(i) = 2*n;
+    end
+    [Base]  = InitGrid(n-k, Division);
+    m = 0;
+    for g = 0:Base(n-k+1)-1
+        [F]      = GridCoords(n-k,g,Base);
+        [isface] = IsFace(n,n-k,F);
+        if isface == 1
+            Face = [Face; F];
+            m    = m+1;
         end
     end
     return;
@@ -965,14 +964,14 @@ end
 %% ConnectEndpoints: Connect manifold edges along a (k+1)-face and output endpoints
 function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertManifold,NVertManifold,Simp,SimpFacesVert,KFaceVertex,NCSimp,NCFace,NSFace)
     
-    VertexManifoldEdge = [];        % List of connected faces
-    SimpFacesLeft = SimpFacesVert;  % Remaining simplex faces that contain manifold vertices
-    SimpLeft = Simp;                % Remaining simplices that contain manifold vertices
-    StartAgain = 1;                 % Flag for initializing from cube face
-    NFLeft = NSFace;                % Number of remaining unverified faces 
-    NSLeft = NCSimp;                % Number of remaining unverified simplices
-    CubeFaceFlag = zeros(NVertManifold,1); % Flags for already verified cube faces
-    NumberManifoldEdge = 0;         % Number of manifold edges
+    VertexManifoldEdge = [];                % List of connected faces
+    SimpFacesLeft = SimpFacesVert;          % Remaining simplex faces that contain manifold vertices
+    SimpLeft = Simp;                        % Remaining simplices that contain manifold vertices
+    StartAgain = 1;                         % Flag for initializing from cube face
+    NFLeft = NSFace;                        % Number of remaining unverified faces 
+    NSLeft = NCSimp;                        % Number of remaining unverified simplices
+    CubeFaceFlag = zeros(NVertManifold,1);  % Flags for already verified cube faces
+    NumberManifoldEdge = 0;                 % Number of manifold edges
 
     % While list is not exhausted
     while NFLeft > 0
@@ -981,12 +980,6 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
         if StartAgain == 1
             % Find first simplex face and cube face match
             [~,~,indFace] = LabelMatch(2^k,k+1,KFaceVertex,SimpFacesLeft,NCFace,NFLeft);
-
-            % If there are vertices left not connected to a cube face, throw warning for refinement and return
-            if indFace < 0
-                warning('Internal loop detected; refinement recommended')
-                return
-            end
 
             % Store simplex face that is in a cube face
             ConnSimpFaces = SimpFacesLeft(indFace,:);
@@ -1002,6 +995,7 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
 
             % Flag cube face as already verified
             CubeFaceFlag(VertexLabel1) = 1;
+            
         end
 
         % Find next simplex that share the face from previous/starting iteration
@@ -1022,7 +1016,7 @@ function [VertexManifoldEdge,NumberManifoldEdge] = ConnectEndpoints(k,FaceVertMa
         [FaceMatch,~,~] = LabelMatch(2^k,k+1,KFaceVertex,ConnSimpFaces(NFaceConn,:),NCFace,1);
         % If so, connect manifold vertices as single edge and start again
         if FaceMatch == 1
-            [~,VertexLabel2,~] = LabelMatch(2^k,k+1,FaceVertManifold,ConnSimpFaces(NFaceConn,:),NVertManifold,1,CubeFaceFlag); 
+            [~,VertexLabel2,~] = LabelMatch(2^k,k+1,FaceVertManifold,ConnSimpFaces(NFaceConn,:),NVertManifold,1,CubeFaceFlag);            
             VertexManifoldEdge = [VertexManifoldEdge; VertexLabel1 VertexLabel2];
             NumberManifoldEdge = NumberManifoldEdge + 1;
             StartAgain = 1;
@@ -1045,7 +1039,7 @@ end
 %% LabelMatch: Finds first match between lists of labels
 function [FaceMatch,indLong,indShort] = LabelMatch(n,k,LongLabelList,ShortLabelList,NLongLabel,NShortLabel,LongLabelFlags,varargin)
     if nargin < 7
-        LongLabelFlags = zeros(size(LongLabelList,1));
+        LongLabelFlags = zeros(size(LongLabelList,1),1);
     end
     FaceMatch = 0;
     for indShort = 1:NShortLabel

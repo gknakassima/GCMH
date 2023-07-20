@@ -1,19 +1,15 @@
-function Complex
+function Complex_Cosine
   
-    First      = [-pi -pi -pi -pi];
-    Last       = [pi pi pi pi];
-    Division   = [11 11 11 11]; 
+    First      = [-pi/2 -pi/2 -pi/2 -pi/2];
+    Last       = [pi/2 pi/2 pi/2 pi/2];
+    Division   = [5 5 5 5]; 
     FirstPoint = [0.0 0.0 1.0 0.0];
-  
-    format long
-    tic;
-    %MarchingSimplex(4, 2, First, Last, Division, @zcosw, 'zcosw_MS.txt');
-    %ContinuationSimplex(4, 2, First, Last, Division, FirstPoint, @zcosw, 'zcosw_CS_5.pol');
-    %GeneralizedMarchingHyperCube(4, 2, First, Last, Division, 'zcosw_CH_20.pol', @zcosw);
-    GeneralizedContinuationHyperCube(4, 2, First, Last, Division, FirstPoint, @zcosw, 'zcosw_CH_10.pol');
-    t1 = toc;
-    
-    t1
+    FileName   = 'Cosine.pol';
+
+    %MarchingSimplex(4, 2, First, Last, Division, @zcosw, FileName);
+    %ContinuationSimplex(4, 2, First, Last, Division, FirstPoint, @zcosw, FileName);
+    %GeneralizedMarchingHyperCube(4, 2, First, Last, Division, FileName, @zcosw);
+    %GeneralizedContinuationHyperCube(4, 2, First, Last, Division, FirstPoint, @zcosw, FileName);
     
     
     return 
